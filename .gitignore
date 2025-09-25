@@ -1,0 +1,19 @@
+# STM32CubeIDE generated files and user settings
+Debug/
+Release/
+.settings/
+.mxproject
+*.launch
+
+# Build artifacts
+*.o
+*.elf
+*.map
+*.list
+*.hex
+*.bin
+
+# Other common temporary files
+*~
+*.swp
+*.bak
