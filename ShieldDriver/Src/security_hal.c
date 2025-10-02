@@ -7,29 +7,29 @@
 // --- Pin Definitions (กรุณาแก้ไขให้ตรงกับฮาร์ดแวร์จริง) ---
 // LEDs
 #define RED_LED_PORT        GPIOA
-#define RED_LED_PIN         5
+#define RED_LED_PIN         6 // <--- แก้ไข
 #define YELLOW_LED_PORT     GPIOA
-#define YELLOW_LED_PIN      6
+#define YELLOW_LED_PIN      7 // <--- แก้ไข
 #define GB_LED_PORT         GPIOA
-#define GB_LED_PIN          7
+#define GB_LED_PIN          5 // <--- แก้ไข
 
-// Buzzer
+// Buzzer (or Green LED)
 #define BUZZER_PORT         GPIOB
 #define BUZZER_PIN          6
 
-// Buttons (PC13 คือปุ่มฟ้าบนบอร์ด Nucleo)
-#define S1_PORT             GPIOC
-#define S1_PIN              13
+// Buttons
+#define S1_PORT             GPIOA // <--- แก้ไข
+#define S1_PIN              10    // <--- แก้ไข
 #define S2_PORT             GPIOB
 #define S2_PIN              3
 #define S3_PORT             GPIOB
-#define S3_PIN              5
-
+#define S3_PIN              5     // <--- แก้ไข
 // Sensors
 #define INTRUSION_PORT      GPIOB
 #define INTRUSION_PIN       0
+#define LIGHT_SENSOR_PIN    1    // PA1 / A1 (เผื่อไว้) <--- แก้ไข
 #define TEMP_SENSOR_PORT    GPIOA
-#define TEMP_SENSOR_PIN     0    // ADC1_IN0
+#define TEMP_SENSOR_PIN     0    // PA0 / A0 <--- แก้ไขกลับมาเป็น 0
 #define POT_PORT            GPIOA
 #define POT_PIN             4    // ADC1_IN4
 
