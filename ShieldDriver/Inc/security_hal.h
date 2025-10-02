@@ -5,32 +5,35 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "stm32f411xe.h"
 
-// --- Initialization ---
-void HAL_Init(void);
+void Security_HAL_Init(void);
 
-// --- Input Functions ---
-float   HAL_GetTemperature(void);      // Returns temperature in Celsius
-uint16_t HAL_GetPotValue(void);        // Returns raw ADC value (0-4095)
-bool    HAL_IsIntrusionDetected(void);
-bool    HAL_IsS1Pressed(void);
-bool    HAL_IsS2Pressed(void);
-bool    HAL_IsS3Pressed(void);
-bool HAL_IsYellowLED_On(void);
+// Input Functions
+float    HAL_GetTemperature(void);
+uint16_t HAL_GetPotValue(void);
+bool     HAL_IsIntrusionDetected(void);
+bool     HAL_IsS1Pressed(void);
+bool     HAL_IsS2Pressed(void);
+bool     HAL_IsS3Pressed(void);
+bool     HAL_IsModeSelectLED_On(void);
+bool     HAL_IsFireAlarmLED_On(void);
 
-// --- Output Functions ---
-void HAL_SetRedLED(bool state);
-void HAL_SetYellowLED(bool state);
-void HAL_SetGB_LED(bool state);
+// Output Functions
+void HAL_SetFireAlarmLED(bool state);
+void HAL_SetModeSelectLED(bool state);
+void HAL_SetHomeModeLED(bool state);
+void HAL_SetAwayModeLED(bool state);
 void HAL_SetBuzzer(bool state);
 
-// --- Combined Alarm Functions ---
+// Combined Alarm Functions
 void HAL_ActivateFireAlarm(void);
 void HAL_ActivateIntruderAlarm(void);
 void HAL_DeactivateAllAlarms(void);
 
-// --- Utility ---
-void HAL_Delay(uint32_t ms);
-
+// Utility
+uint32_t HAL_GetTick(void);
+void SysTick_Handler(void);
+void HAL_UART_TxString(char strOut[]);
 
 #endif /* SECURITY_HAL_H_ */
