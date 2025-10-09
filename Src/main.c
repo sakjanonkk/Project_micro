@@ -3,18 +3,17 @@
 #include "security_hal.h"
 #include <stdio.h>
 
-extern char debug_buffer[]; // Use global buffer from security_hal.c
+extern char debug_buffer[];
 
 typedef enum {
-    STATE_DISARMED,       // <-- C compiler จะกำหนดให้มีค่าเป็น 0
-    STATE_MODE_SELECTION, // <-- จะมีค่าเป็น 1
-    STATE_ARMED,          // <-- จะมีค่าเป็น 2
-    STATE_INTRUDER_ALERT, // <-- จะมีค่าเป็น 3
-    STATE_FIRE_ALARM      // <-- จะมีค่าเป็น 4
+    STATE_DISARMED,
+    STATE_MODE_SELECTION,
+    STATE_ARMED,
+    STATE_INTRUDER_ALERT,
+    STATE_FIRE_ALARM
 } SystemState_t;
 
-// --- System Configuration ---
-#define TEMPERATURE_THRESHOLD   28.0f // <--- ปรับค่านี้เพื่อทดสอบได้ง่าย
+#define TEMPERATURE_THRESHOLD   30.0f
 #define PASSCODE_VALUE          2048
 #define PASSCODE_TOLERANCE      200
 
@@ -32,16 +31,22 @@ int main(void) {
     while (1) {
         uint32_t now = HAL_GetTick();
 
-        // Print debug info every 1 second
-        if (now - last_debug_print_time >= 1000) {
+        // ⭐ เพิ่ม LDR ใน debug output
+        if (now - last_debug_print_time >= 500) {  // เปลี่ยนเป็น 500ms
             last_debug_print_time = now;
             float temp = HAL_GetTemperature();
             uint16_t pot = HAL_GetPotValue();
-            sprintf(debug_buffer, "Temp: %.2f C, Pot: %u, State: %d\r\n", temp, pot, currentState);
+            uint16_t lux = HAL_GetLightLevel();
+
+            // ⭐ เพิ่ม Reed raw value
+            bool reed_raw = (GPIOB->IDR & (1 << 4)) ? 1 : 0;
+            bool intrusion = HAL_IsIntrusionDetected();
+
+            sprintf(debug_buffer, "T:%.1f P:%u Lux:%u Reed:%d Intru:%d St:%d\r\n",
+                    temp, pot, lux, reed_raw, intrusion, currentState);
             HAL_UART_TxString(debug_buffer);
         }
 
-        // High-Priority Fire Check (can override most states)
         if (currentState != STATE_FIRE_ALARM && currentState != STATE_INTRUDER_ALERT) {
             if (HAL_GetTemperature() > TEMPERATURE_THRESHOLD) {
                 currentState = STATE_FIRE_ALARM;
@@ -129,6 +134,5 @@ int main(void) {
                 }
                 break;
         }
-    } // End of while(1) loop
-    // return 0; // This should be outside the while loop, but main should never exit.
+    }
 }

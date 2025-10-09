@@ -37,6 +37,9 @@ char debug_buffer[100];
 #define TEMP_SENSOR_PORT        GPIOA
 #define TEMP_SENSOR_PIN         0
 
+#define LDR_SENSOR_PORT         GPIOA      // ⭐ เพิ่ม
+#define LDR_SENSOR_PIN          1          // ⭐ เพิ่ม
+
 #define POT_PORT                GPIOA
 #define POT_PIN                 4
 
@@ -47,6 +50,12 @@ char debug_buffer[100];
 #define NTC_PULLUP_R        10000.0f
 #define ADC_VREF            3.3f
 #define ADC_MAX_VAL         4095.0f
+
+// ⭐ เพิ่ม LDR Constants
+#define LDR_SLOPE           -0.6875f
+#define LDR_OFFSET          5.1276f
+#define LDR_PULLUP_R        10000.0f
+#define LDR_THRESHOLD       300.0f
 
 volatile uint32_t ms_ticks = 0;
 
@@ -71,12 +80,32 @@ void Security_HAL_Init(void) {
     RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
     RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
 
-    // Configure Output Pins
+    // Clear and Configure Output Pins properly
+    FIRE_ALARM_LED_PORT->MODER &= ~(0b11 << (FIRE_ALARM_LED_PIN * 2));
     FIRE_ALARM_LED_PORT->MODER |= (0b01 << (FIRE_ALARM_LED_PIN * 2));
+
+    MODE_SELECT_LED_PORT->MODER &= ~(0b11 << (MODE_SELECT_LED_PIN * 2));
     MODE_SELECT_LED_PORT->MODER |= (0b01 << (MODE_SELECT_LED_PIN * 2));
+
+    HOME_MODE_LED_PORT->MODER &= ~(0b11 << (HOME_MODE_LED_PIN * 2));
     HOME_MODE_LED_PORT->MODER |= (0b01 << (HOME_MODE_LED_PIN * 2));
+
+    AWAY_MODE_LED_PORT->MODER &= ~(0b11 << (AWAY_MODE_LED_PIN * 2));
     AWAY_MODE_LED_PORT->MODER |= (0b01 << (AWAY_MODE_LED_PIN * 2));
+
+    // Configure Buzzer pin (ไม่แก้ - ทำงานแล้ว!)
+    BUZZER_PORT->MODER &= ~(0b11 << (BUZZER_PIN * 2));
     BUZZER_PORT->MODER |= (0b01 << (BUZZER_PIN * 2));
+    BUZZER_PORT->OTYPER &= ~(1 << BUZZER_PIN);
+    BUZZER_PORT->OSPEEDR &= ~(0b11 << (BUZZER_PIN * 2));
+    BUZZER_PORT->PUPDR &= ~(0b11 << (BUZZER_PIN * 2));
+
+    // Initialize all outputs to OFF
+    FIRE_ALARM_LED_PORT->BSRR = (1 << (FIRE_ALARM_LED_PIN + 16));
+    MODE_SELECT_LED_PORT->BSRR = (1 << (MODE_SELECT_LED_PIN + 16));
+    HOME_MODE_LED_PORT->BSRR = (1 << (HOME_MODE_LED_PIN + 16));
+    AWAY_MODE_LED_PORT->BSRR = (1 << (AWAY_MODE_LED_PIN + 16));
+    BUZZER_PORT->BSRR = (1 << (BUZZER_PIN + 16));  // ไม่แก้ - ทำงานแล้ว!
 
     // Configure Input Pins with Pull-up
     S1_PORT->PUPDR |= (0b01 << (S1_PIN * 2));
@@ -86,6 +115,7 @@ void Security_HAL_Init(void) {
 
     // Configure Analog Pins
     TEMP_SENSOR_PORT->MODER |= (0b11 << (TEMP_SENSOR_PIN * 2));
+    LDR_SENSOR_PORT->MODER |= (0b11 << (LDR_SENSOR_PIN * 2));  // ⭐ เพิ่ม LDR
     POT_PORT->MODER |= (0b11 << (POT_PIN * 2));
 
     // Configure ADC
@@ -113,11 +143,31 @@ float HAL_GetTemperature(void) {
     return temp_k - 273.15f;
 }
 
+// ⭐ เพิ่มฟังก์ชัน LDR
+uint16_t HAL_GetLightLevel(void) {
+    uint16_t adc_val = read_adc_channel(LDR_SENSOR_PIN);
+    if (adc_val == 0 || adc_val >= 4095) return 0;
+
+    float v_out = (adc_val * ADC_VREF) / ADC_MAX_VAL;
+    float r_ldr = (v_out * LDR_PULLUP_R) / (ADC_VREF - v_out);
+
+    if (r_ldr <= 0) return 0;
+
+    float lux = powf(10.0f, (log10f(r_ldr) - LDR_OFFSET) / LDR_SLOPE);
+    return (uint16_t)lux;
+}
+
 uint16_t HAL_GetPotValue(void) {
     return read_adc_channel(POT_PIN);
 }
 
-bool HAL_IsIntrusionDetected(void) { return !(INTRUSION_PORT->IDR & (1 << INTRUSION_PIN)); }
+// ⭐ แก้ให้รวม LDR detection
+bool HAL_IsIntrusionDetected(void) {
+    bool reed_open = !(INTRUSION_PORT->IDR & (1 << INTRUSION_PIN));
+    bool light_changed = (HAL_GetLightLevel() > LDR_THRESHOLD);
+    return (reed_open || light_changed);
+}
+
 bool HAL_IsS1Pressed(void) { return !(S1_PORT->IDR & (1 << S1_PIN)); }
 bool HAL_IsS2Pressed(void) { return !(S2_PORT->IDR & (1 << S2_PIN)); }
 bool HAL_IsS3Pressed(void) { return !(S3_PORT->IDR & (1 << S3_PIN)); }
@@ -129,7 +179,14 @@ void HAL_SetFireAlarmLED(bool state) { if (state) FIRE_ALARM_LED_PORT->BSRR = (1
 void HAL_SetModeSelectLED(bool state) { if (state) MODE_SELECT_LED_PORT->BSRR = (1 << MODE_SELECT_LED_PIN); else MODE_SELECT_LED_PORT->BSRR = (1 << (MODE_SELECT_LED_PIN + 16)); }
 void HAL_SetHomeModeLED(bool state) { if (state) HOME_MODE_LED_PORT->BSRR = (1 << HOME_MODE_LED_PIN); else HOME_MODE_LED_PORT->BSRR = (1 << (HOME_MODE_LED_PIN + 16)); }
 void HAL_SetAwayModeLED(bool state) { if (state) AWAY_MODE_LED_PORT->BSRR = (1 << AWAY_MODE_LED_PIN); else AWAY_MODE_LED_PORT->BSRR = (1 << (AWAY_MODE_LED_PIN + 16)); }
-void HAL_SetBuzzer(bool state) { if (state) BUZZER_PORT->BSRR = (1 << BUZZER_PIN); else BUZZER_PORT->BSRR = (1 << (BUZZER_PIN + 16)); }
+
+// ไม่แก้ Buzzer - ทำงานแล้ว!
+void HAL_SetBuzzer(bool state) {
+    if (state)
+        BUZZER_PORT->BSRR = (1 << BUZZER_PIN);
+    else
+        BUZZER_PORT->BSRR = (1 << (BUZZER_PIN + 16));
+}
 
 void HAL_ActivateFireAlarm(void) { HAL_SetFireAlarmLED(true); HAL_SetBuzzer(true); }
 void HAL_ActivateIntruderAlarm(void) { HAL_SetBuzzer(true); }
