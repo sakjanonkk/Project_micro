@@ -11,7 +11,7 @@ void Security_HAL_Init(void);
 
 // Input Functions
 float    HAL_GetTemperature(void);
-uint16_t HAL_GetLightLevel(void);      // ⭐ เพิ่มบรรทัดนี้
+uint16_t HAL_GetLightLevel(void);
 uint16_t HAL_GetPotValue(void);
 bool     HAL_IsIntrusionDetected(void);
 bool     HAL_IsS1Pressed(void);
@@ -31,6 +31,9 @@ void HAL_SetBuzzer(bool state);
 void HAL_ActivateFireAlarm(void);
 void HAL_ActivateIntruderAlarm(void);
 void HAL_DeactivateAllAlarms(void);
+
+// ⭐ เพิ่มบรรทัดนี้
+void HAL_SetSecurityMode(bool isHomeMode);
 
 // Utility
 uint32_t HAL_GetTick(void);

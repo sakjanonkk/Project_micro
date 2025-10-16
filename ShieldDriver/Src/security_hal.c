@@ -6,6 +6,8 @@
 
 char debug_buffer[100];
 
+static bool g_isHomeMode = true;
+
 // --- Pin Mapping ---
 #define FIRE_ALARM_LED_PORT     GPIOA
 #define FIRE_ALARM_LED_PIN      6
@@ -58,6 +60,10 @@ char debug_buffer[100];
 #define LDR_THRESHOLD       300.0f
 
 volatile uint32_t ms_ticks = 0;
+
+void HAL_SetSecurityMode(bool isHomeMode) {
+    g_isHomeMode = isHomeMode;
+}
 
 void SysTick_Handler(void) {
     ms_ticks++;
@@ -165,7 +171,14 @@ uint16_t HAL_GetPotValue(void) {
 bool HAL_IsIntrusionDetected(void) {
     bool reed_open = !(INTRUSION_PORT->IDR & (1 << INTRUSION_PIN));
     bool light_changed = (HAL_GetLightLevel() > LDR_THRESHOLD);
-    return (reed_open || light_changed);
+    //return (reed_open || light_changed);
+    if (g_isHomeMode) {
+
+            return false;
+        } else {
+            // Away Mode: ตรวจทั้ง Reed + LDR
+            return (reed_open || light_changed);
+        }
 }
 
 bool HAL_IsS1Pressed(void) { return !(S1_PORT->IDR & (1 << S1_PIN)); }

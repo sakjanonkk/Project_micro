@@ -13,7 +13,7 @@ typedef enum {
     STATE_FIRE_ALARM
 } SystemState_t;
 
-#define TEMPERATURE_THRESHOLD   30.0f
+#define TEMPERATURE_THRESHOLD   34.0f
 #define PASSCODE_VALUE          2048
 #define PASSCODE_TOLERANCE      200
 
@@ -28,22 +28,27 @@ int main(void) {
     uint32_t last_debug_print_time = 0;
     const uint32_t DEBOUNCE_DELAY = 200;
 
+    // ⭐ เพิ่ม State Name Array
+    const char* state_names[] = {
+        "DISARMED", "MODE_SEL", "ARMED", "INTRUDER", "FIRE"
+    };
+
     while (1) {
         uint32_t now = HAL_GetTick();
 
-        // ⭐ เพิ่ม LDR ใน debug output
-        if (now - last_debug_print_time >= 500) {  // เปลี่ยนเป็น 500ms
+        // ⭐ Debug output
+        if (now - last_debug_print_time >= 500) {
             last_debug_print_time = now;
             float temp = HAL_GetTemperature();
             uint16_t pot = HAL_GetPotValue();
             uint16_t lux = HAL_GetLightLevel();
-
-            // ⭐ เพิ่ม Reed raw value
             bool reed_raw = (GPIOB->IDR & (1 << 4)) ? 1 : 0;
             bool intrusion = HAL_IsIntrusionDetected();
 
-            sprintf(debug_buffer, "T:%.1f P:%u Lux:%u Reed:%d Intru:%d St:%d\r\n",
-                    temp, pot, lux, reed_raw, intrusion, currentState);
+            sprintf(debug_buffer, "T:%.1f P:%u Lux:%u Reed:%d Intru:%d [%s] %s\r\n",
+                    temp, pot, lux, reed_raw, intrusion,
+                    state_names[currentState],
+                    isHomeMode ? "HOME" : "AWAY");  // ⭐ แสดง Mode
             HAL_UART_TxString(debug_buffer);
         }
 
@@ -90,33 +95,40 @@ int main(void) {
                 HAL_SetHomeModeLED(isHomeMode);
                 HAL_SetAwayModeLED(!isHomeMode);
 
+                // ⭐ บอก HAL ว่าตอนนี้เป็น mode ไหน
+                HAL_SetSecurityMode(isHomeMode);
+
                 if (HAL_IsIntrusionDetected()) {
                     currentState = STATE_INTRUDER_ALERT;
                 }
-                if ((HAL_IsS2Pressed() || HAL_IsS3Pressed()) && (now - last_button_time > DEBOUNCE_DELAY)) {
+
+                uint16_t disarm_pot = HAL_GetPotValue();
+                if (HAL_IsS1Pressed() && (now - last_button_time > DEBOUNCE_DELAY) &&
+                    (disarm_pot > (PASSCODE_VALUE - PASSCODE_TOLERANCE)) &&
+                    (disarm_pot < (PASSCODE_VALUE + PASSCODE_TOLERANCE))) {
                     last_button_time = now;
-                    currentState = STATE_MODE_SELECTION;
+                    currentState = STATE_DISARMED;
+                    HAL_DeactivateAllAlarms();
                 }
                 break;
 
             case STATE_INTRUDER_ALERT:
                 HAL_ActivateIntruderAlarm();
+
                 if (now - last_blink_time > 150) {
                     last_blink_time = now;
                     bool current_led_state = HAL_IsModeSelectLED_On();
+
                     HAL_SetFireAlarmLED(!current_led_state);
                     HAL_SetModeSelectLED(!current_led_state);
                     HAL_SetHomeModeLED(!current_led_state);
                     HAL_SetAwayModeLED(!current_led_state);
                 }
 
-                uint16_t disarm_pot_val = HAL_GetPotValue();
-                if (HAL_IsS1Pressed() && (now - last_button_time > DEBOUNCE_DELAY) &&
-                    (disarm_pot_val > (PASSCODE_VALUE - PASSCODE_TOLERANCE)) &&
-                    (disarm_pot_val < (PASSCODE_VALUE + PASSCODE_TOLERANCE))) {
-                   last_button_time = now;
-                   currentState = STATE_DISARMED;
-                   HAL_DeactivateAllAlarms();
+                if (HAL_IsS1Pressed() && (now - last_button_time > DEBOUNCE_DELAY)) {
+                    last_button_time = now;
+                    currentState = STATE_DISARMED;
+                    HAL_DeactivateAllAlarms();
                 }
                 break;
 
